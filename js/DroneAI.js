@@ -16,29 +16,24 @@ for (let dx = -1; dx <= 1; dx++)
       DRONE_GHOST_OFFSETS.push([dx * WORLD.WW, dz * WORLD.WD]);
 
 /**
- * DroneAI — builds and updates 5 AI drones with obstacle avoidance,
- * waypoint steering, smooth banking/pitch, and ghost instances for
- * seamless toroidal visibility across world borders.
+ * DroneAI — 5 AI drones flying through the cave with waypoint steering,
+ * smooth banking/pitch, and cave floor/ceiling collision.
  */
 class DroneAI {
   /**
-   * @param {BABYLON.Scene}  scene
-   * @param {{ x,z,r,topY }[]} colliders
+   * @param {BABYLON.Scene} scene
+   * @param {Terrain} terrain
    */
-  constructor(scene, colliders) {
-    this.scene     = scene;
-    this.colliders = colliders;
-    this._drones   = this._spawnDrones();
+  constructor(scene, terrain) {
+    this.scene   = scene;
+    this.terrain = terrain;
+    this._drones = this._spawnDrones();
   }
 
-  /** Read-only array of drone state objects. */
   get drones() { return this._drones; }
 
-  /** Call once per frame with delta-time in seconds. */
   update(dt) {
-    for (const d of this._drones) {
-      this._stepDrone(d, dt);
-    }
+    for (const d of this._drones) this._stepDrone(d, dt);
   }
 
   // ── Private ───────────────────────────────────────────────────────────────
@@ -60,7 +55,6 @@ class DroneAI {
       { width:5.6, height:0.24, depth:0.46 }, this.scene);
     a2.rotation.y = -Math.PI / 4;
 
-    // Motor pods — arm tip distance = (5.6/2) × sin45° ≈ 1.98
     const mr = 1.98;
     const motors = [[-mr,-mr],[mr,-mr],[-mr,mr],[mr,mr]].map(([x, z]) => {
       const m = BABYLON.MeshBuilder.CreateCylinder('drM',
@@ -78,21 +72,21 @@ class DroneAI {
     return { mesh, ghosts };
   }
 
+  _midY() {
+    return WORLD.WH * 0.5 + (Math.random() - 0.5) * 20;
+  }
+
   _spawnDrones() {
     return DRONE_PALETTE.map((col, i) => {
-      const angle = (i / DRONE_PALETTE.length) * Math.PI * 2;
-      const dist  = 20 + i * 14;
+      const angle    = (i / DRONE_PALETTE.length) * Math.PI * 2;
+      const dist     = 20 + i * 14;
       const meshData = this._buildMesh(col);
       return {
-        pos: {
-          x: Math.cos(angle) * dist,
-          y: WORLD.FLY_MIN + 8 + Math.random() * (WORLD.FLY_MAX - WORLD.FLY_MIN - 16),
-          z: Math.sin(angle) * dist,
-        },
+        pos:           { x: Math.cos(angle) * dist, y: this._midY(), z: Math.sin(angle) * dist },
         yaw:           angle,
         speed:         15 + Math.random() * 10,
         targetYaw:     angle + 0.5,
-        targetY:       WORLD.FLY_MIN + 8 + Math.random() * (WORLD.FLY_MAX - WORLD.FLY_MIN - 16),
+        targetY:       this._midY(),
         waypointTimer: i * 1.3,
         col,
         meshData,
@@ -105,40 +99,13 @@ class DroneAI {
     d.waypointTimer -= dt;
     if (d.waypointTimer <= 0) {
       d.targetYaw     = d.yaw + (Math.random() - 0.5) * Math.PI * 1.6;
-      d.targetY       = WORLD.FLY_MIN + 8 + Math.random() * (WORLD.FLY_MAX - WORLD.FLY_MIN - 16);
+      d.targetY       = this._midY();
       d.waypointTimer = 3 + Math.random() * 5;
-    }
-
-    // ── Look-ahead obstacle avoidance ──────────────────────────────────────
-    const LOOK = 40;
-    const lx = d.pos.x + Math.sin(d.yaw) * LOOK;
-    const lz = d.pos.z + Math.cos(d.yaw) * LOOK;
-
-    for (const c of this.colliders) {
-      if (c.topY < d.pos.y - 5) continue;
-      const adx = toroidDiff(lx, c.x, WORLD.WW);
-      const adz = toroidDiff(lz, c.z, WORLD.WD);
-      if (adx * adx + adz * adz < (c.r + 10) * (c.r + 10)) {
-        const toObsX   = toroidDiff(c.x, d.pos.x, WORLD.WW);
-        const toObsZ   = toroidDiff(c.z, d.pos.z, WORLD.WD);
-        const relAngle = wrapHalf(Math.atan2(toObsX, toObsZ) - d.yaw, Math.PI * 2);
-        d.targetYaw    = d.yaw + (relAngle > 0 ? -Math.PI * 0.75 : Math.PI * 0.75);
-        d.targetY      = (c.topY - d.pos.y > 0)
-          ? Math.min(WORLD.FLY_MAX - 5, d.pos.y + 15)
-          : Math.max(WORLD.FLY_MIN + 5, d.pos.y - 15);
-        d.waypointTimer = 2.5;
-        break;
-      }
     }
 
     // ── Smooth yaw ─────────────────────────────────────────────────────────
     const yawErr = wrapHalf(d.targetYaw - d.yaw, Math.PI * 2);
     d.yaw += Math.sign(yawErr) * Math.min(Math.abs(yawErr), 1.8 * dt);
-
-    // ── Smooth altitude ────────────────────────────────────────────────────
-    const yErr = d.targetY - d.pos.y;
-    d.pos.y = Math.max(WORLD.FLY_MIN, Math.min(WORLD.FLY_MAX,
-                d.pos.y + Math.sign(yErr) * Math.min(Math.abs(yErr), 14 * dt)));
 
     // ── Move forward ───────────────────────────────────────────────────────
     d.pos.x += Math.sin(d.yaw) * d.speed * dt;
@@ -148,16 +115,31 @@ class DroneAI {
     d.pos.x = wrapHalf(d.pos.x, WORLD.WW);
     d.pos.z = wrapHalf(d.pos.z, WORLD.WD);
 
-    // ── Visual: bank into turns, pitch on climb/dive ───────────────────────
+    // ── Smooth altitude toward target ──────────────────────────────────────
+    const yErr = d.targetY - d.pos.y;
+    d.pos.y += Math.sign(yErr) * Math.min(Math.abs(yErr), 14 * dt);
+
+    // ── Cave collision — clamp between floor and ceiling ───────────────────
+    const floorY = this.terrain.floorAt(d.pos.x, d.pos.z);
+    const ceilY  = this.terrain.ceilAt(d.pos.x, d.pos.z);
+    const margin = 4;
+    if (d.pos.y < floorY + margin) {
+      d.pos.y   = floorY + margin;
+      d.targetY = floorY + margin + 10;
+    }
+    if (d.pos.y > ceilY - margin) {
+      d.pos.y   = ceilY - margin;
+      d.targetY = ceilY - margin - 10;
+    }
+
+    // ── Visual banking / pitch ─────────────────────────────────────────────
     const bank  = Math.max(-0.45, Math.min(0.45, -yawErr * 0.35));
     const pitch = Math.max(-0.28, Math.min(0.28, -yErr   * 0.012));
 
-    // Update main mesh
     const { mesh, ghosts } = d.meshData;
     mesh.position.set(d.pos.x, d.pos.y, d.pos.z);
     mesh.rotation.set(pitch, d.yaw, bank);
 
-    // Update 8 ghost copies — same rotation, offset position
     for (let i = 0; i < ghosts.length; i++) {
       ghosts[i].position.set(
         d.pos.x + DRONE_GHOST_OFFSETS[i][0],

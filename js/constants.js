@@ -3,11 +3,11 @@
 const WORLD = Object.freeze({
   WW:      200,   // world width  (X)
   WD:      200,   // world depth  (Z)
-  WH:      100,   // world height (Y) — half of WW
-  WATER_Y: 14,    // water surface Y
-  CLOUD_Y: 91,    // WH - 9
-  FLY_MIN: 20,    // WATER_Y + 6 — lowest drone altitude
-  FLY_MAX: 85,    // CLOUD_Y - 6 — highest drone altitude
-  FOG_D:   0.009, // EXP2 fog density; at 400 units visibility < 0.01 %
-  SKY:     [0.52, 0.80, 0.98], // sky / fog RGB — must be identical
+  WH:      100,   // world height (Y)
+  CAVE_G:  40,    // grid divisions — 40×40 cells of 5×5 units
+  CAVE_BS: 5,     // block size in world units
+  FLY_MIN: 10,    // absolute minimum altitude (terrain pushes player up further)
+  FLY_MAX: 90,    // absolute maximum altitude (terrain pushes player down further)
+  FOG_D:   0.012, // EXP2 density — at 250 units visibility < 1 %
+  SKY:     [0.04, 0.03, 0.06],  // dark cave void colour
 });
