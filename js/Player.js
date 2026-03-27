@@ -72,7 +72,7 @@ class Player {
     cam.lowerRadiusLimit = WORLD.WW * 0.05;
     cam.upperRadiusLimit = WORLD.WW * 0.9;
     cam.minZ = 0.5;
-    cam.maxZ = WORLD.WW * 4;
+    cam.maxZ = WORLD.WW * 7;
     cam.attachControl(this.canvas, false);
     return cam;
   }
@@ -81,7 +81,7 @@ class Player {
     const cam = new BABYLON.FreeCamera(
       'fly', new BABYLON.Vector3(10, this.flyY, 10), this.scene);
     cam.minZ = 0.5;
-    cam.maxZ = WORLD.WW * 4;
+    cam.maxZ = WORLD.WW * 7;
     cam.setTarget(new BABYLON.Vector3(30, this.flyY, 10));
     return cam;
   }

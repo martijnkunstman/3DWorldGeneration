@@ -22,7 +22,7 @@ class Terrain {
     this._floorH = this._genHeights(17);   // floor top heights (y=0..MAX)
     this._ceilD  = this._genHeights(53);   // ceiling drop amounts (0..MAX from WH)
 
-    this._offsets = Terrain._buildOffsets(1); // 3×3 ghost grid
+    this._offsets = Terrain._buildOffsets(3); // 7×7 ghost grid
     this._buildMeshes();
   }
 

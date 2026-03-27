@@ -8,6 +8,6 @@ const WORLD = Object.freeze({
   CAVE_BS: 5,     // block size in world units
   FLY_MIN: 10,    // absolute minimum altitude (terrain pushes player up further)
   FLY_MAX: 90,    // absolute maximum altitude (terrain pushes player down further)
-  FOG_D:   0.012, // EXP2 density — at 250 units visibility < 1 %
+  FOG_D:   0.003, // EXP2 density — at 600 units visibility < 1 %
   SKY:     [0.04, 0.03, 0.06],  // dark cave void colour
 });
